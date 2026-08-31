@@ -1,0 +1,55 @@
+From 1826e91e18fa99effcfec6d874207ed7d5d4b75e Mon Sep 17 00:00:00 2001
+From: Syed Amer Gilani <syed.amer@gilani.eu>
+Date: Fri, 5 Jun 2026 19:16:16 +0200
+Subject: [PATCH] drm/i915/dsi: Bypass GPIO sequences on Huawei Matebook E
+
+The Huawei Matebook E 2022 (DRC-WXX) uses a dual-link DSI panel where
+executing the VBT GPIO sequence corrupts the internal display. The
+failure was bisected to commit c7229577d93d ("drm/i915/dsi: add support
+for ICL+ native MIPI GPIO sequence"), which made ICL+ execute these GPIO
+operations instead of treating them as a no-op.
+
+Skip the GPIO element on this machine to restore the pre-regression
+behaviour. The sequence parser still advances over the element payload,
+but no GPIO line is toggled.
+
+The affected panel has been tested working with this bypass on v6.1.5,
+v6.6.85, v6.12.32, and together with the DSB fix on v7.1-rc4.
+
+Fixes: c7229577d93d ("drm/i915/dsi: add support for ICL+ native MIPI GPIO sequence")
+Closes: https://gitlab.freedesktop.org/drm/i915/kernel/-/work_items/8992
+Signed-off-by: Syed Amer Gilani <syed.amer@gilani.eu>
+---
+ drivers/gpu/drm/i915/display/intel_dsi_vbt.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+index fe12041e913c..fc37e9e394b9 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
++++ b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+@@ -26,6 +26,7 @@
+ 
+ #include <linux/gpio/consumer.h>
+ #include <linux/gpio/machine.h>
++#include <linux/dmi.h>
+ #include <linux/mfd/intel_soc_pmic.h>
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/pinctrl/machine.h>
+@@ -422,6 +423,14 @@ static const u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, const u8 *data)
+ 			gpio_source = (data[1] >> 1) & 3;
+ 	}
+ 
++	/*
++	 * Huawei Matebook E 2022 (DRC-WXX) uses a dual-link DSI panel
++	 * whose VBT GPIO sequences interfere with DSI link synchronization.
++	 */
++	if (dmi_match(DMI_SYS_VENDOR, "HUAWEI") &&
++	    dmi_match(DMI_PRODUCT_NAME, "DRC-WXX"))
++		return data + size;
++
+ 	drm_dbg_kms(display->drm, "GPIO index %u, number %u, source %u, native %s, set to %s\n",
+ 		    gpio_index, gpio_number, gpio_source, str_yes_no(native), str_on_off(value));
+ 
+-- 
+2.54.0
+

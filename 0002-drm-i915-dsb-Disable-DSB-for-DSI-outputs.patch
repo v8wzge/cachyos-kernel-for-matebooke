@@ -1,0 +1,40 @@
+From ce7f157d8ba6734d29c2d8e6e12d0930813e8210 Mon Sep 17 00:00:00 2001
+From: Syed Amer Gilani <syed.amer@gilani.eu>
+Date: Fri, 5 Jun 2026 19:14:43 +0200
+Subject: [PATCH] drm/i915/dsb: Disable DSB for DSI outputs
+
+Commit 45c548642b56 ("drm/i915/dsb: Use DSB for plane/color management
+updates") enabled the DSB plane/color update path for all otherwise
+eligible outputs, including DSI. On the Huawei Matebook E 2022
+(DRC-WXX), this causes the internal dual-link MIPI DSI panel to stay
+blank.
+
+Exclude DSI outputs from the generic DSB plane/color update path and keep
+using the existing CPU-programmed update sequence for them.
+
+Bisected between v6.12 (working) and v6.13 (blank) -- 13 test steps.
+
+Fixes: 45c548642b56 ("drm/i915/dsb: Use DSB for plane/color management updates")
+Closes: https://gitlab.freedesktop.org/drm/i915/kernel/-/work_items/8992
+Signed-off-by: Syed Amer Gilani <syed.amer@gilani.eu>
+---
+ drivers/gpu/drm/i915/display/intel_display.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
+index ad2fe10b6b1f..66d56780bb69 100644
+--- a/drivers/gpu/drm/i915/display/intel_display.c
++++ b/drivers/gpu/drm/i915/display/intel_display.c
+@@ -7289,7 +7289,8 @@ static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
+ 		!new_crtc_state->do_async_flip &&
+ 		(DISPLAY_VER(display) >= 20 || !new_crtc_state->has_psr) &&
+ 		!intel_crtc_needs_modeset(new_crtc_state) &&
+-		!intel_crtc_needs_fastset(new_crtc_state);
++		!intel_crtc_needs_fastset(new_crtc_state) &&
++		!intel_crtc_has_type(new_crtc_state, INTEL_OUTPUT_DSI);
+ 
+ 	intel_color_prepare_commit(state, crtc);
+ }
+-- 
+2.54.0
+

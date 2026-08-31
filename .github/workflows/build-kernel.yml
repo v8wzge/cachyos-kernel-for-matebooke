@@ -118,17 +118,13 @@ jobs:
       - name: Run compilation script (script-v3-v4.sh)
         run: |
           cd linux-cachyos
-
-          if [ ! -f "script-v3-v4.sh" ]; then
-            echo "::error::script-v3-v4.sh not found in linux-cachyos!"
-            exit 1
-          fi
-
+          # 禁用nvidia zfs r8125
+          cp ../script-v4.sh /
           echo "=== Starting kernel compilation ==="
           echo "This may take a long time. Be patient!"
           echo ""
-          echo "Running script-v3-v4.sh..."
-          bash script-v3-v4.sh
+          echo "Running script-v4.sh..."
+          bash script-v4.sh
 
       # ========== 7. 上传编译产物（可选） ==========
       - name: Upload build artifacts

@@ -159,7 +159,15 @@ jobs:
               docker rm kernelbuild
               cd ..
           done
+          echo "=== Moving kernels to output directory ==="
+          # 1. 在当前目录下创建一个用于存放最终产物的仓库目录
+          mkdir -p local
+          
+          # 2. 将所有生成的 v4 内核包移动到该目录
+          # 注意：如果你的编译环境在 Docker 中，请确保这些文件已经生成在挂载的宿主机目录中
+          mv */*.pkg.tar.zst* local/ || echo "Warning: No packages found to move."
 
+          echo "Local repository updated successfully!"
       # ========== 7. 上传编译产物（可选） ==========
       - name: Upload build artifacts
         if: always()
@@ -167,5 +175,5 @@ jobs:
         with:
           name: cachyos-kernel-build-artifacts
           path: |
-            linux-cachyos/linux-cachy*/*.pkg.tar.zst
+            linux-cachyos/local/*.pkg.tar.zst
           retention-days: 7

@@ -42,9 +42,3 @@ do
     cd ..
 done
 
-## 4. 移动内核到仓库并更新
-echo "move kernels to the repo"
-mv */*-x86_64_v4.pkg.tar.zst* /home/ptr1337/.docker/build/nginx/www/repo/x86_64_v4/cachyos-v4/
-RUST_LOG=trace repo-manage-util -p cachyos-v4 update
-## Ensure that repo-add/repoctl catches all new packages
-RUST_LOG=trace repo-manage-util -p cachyos-v4 update

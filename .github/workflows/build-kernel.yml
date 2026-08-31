@@ -81,7 +81,7 @@ jobs:
           docker run --rm -v "$PWD":/build -w /build archlinux:latest bash -c '
               set -e
               echo "Installing build dependencies..."
-              pacman -Syu
+              pacman -Syu --noconfirm
               pacman -S --noconfirm base-devel git fakeroot debugedit patch pacman-contrib
               echo ""
               for dir in linux-cachyos*/; do

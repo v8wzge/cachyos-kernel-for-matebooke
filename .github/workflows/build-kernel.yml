@@ -118,6 +118,7 @@ jobs:
       - name: Run compilation script (script-v4.sh)
         run: |
           cd linux-cachyos
+          sudo chown -R $USER:$USER .
           ## 1. 全局配置修改
           ## zfs
           # find . -name "PKGBUILD" | xargs -I {} sed -i "s/_build_zfs:=no/_build_zfs:=yes/" {}

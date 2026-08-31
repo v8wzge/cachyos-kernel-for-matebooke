@@ -117,8 +117,9 @@ jobs:
       # ========== 6. 运行 script-v4.sh 开始编译 ==========
       - name: Run compilation script (script-v4.sh)
         run: |
+          sudo chown -R $USER:$USER ./linux-cachyos
           cp -r script-v4.sh ./linux-cachyos/script-v4.sh
-          chmod +x ./linux-cachyos/script-v4.sh
+          sudo chmod +x ./linux-cachyos/script-v4.sh
           
           cd linux-cachyos
           echo "=== Starting kernel compilation ==="

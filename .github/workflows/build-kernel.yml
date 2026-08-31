@@ -94,11 +94,7 @@ jobs:
                   sed -i '/^    "config"$/a\    "0001-drm-i915-dsi-Bypass-GPIO-sequences-on-Huawei-Mateboo.patch"\n    "0002-drm-i915-dsb-Disable-DSB-for-DSI-outputs.patch"' PKGBUILD
 
                   if command -v updpkgsums &> /dev/null; then
-                      updpkgsums
-                  else
-                      echo "Error: updpkgsums not found. Please install pacman-contrib."
-                      cd ..
-                      continue
+                    updpkgsums
                   fi
 
 

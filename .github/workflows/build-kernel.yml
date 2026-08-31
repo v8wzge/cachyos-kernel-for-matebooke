@@ -84,6 +84,13 @@ jobs:
               pacman -Syu --noconfirm
               pacman -S --noconfirm base-devel git fakeroot debugedit patch pacman-contrib
               echo ""
+              
+              # 创建一个普通用户用于执行 updpkgsums
+              useradd -m -u 1000 builder
+              chown -R builder:builder /build
+              
+              # 切换到普通用户执行核心逻辑
+              su builder -c "
               for dir in linux-cachyos*/; do
                 if [ -f "$dir/PKGBUILD" ]; then
                   echo "============================================"
@@ -94,8 +101,6 @@ jobs:
                   sed -i "/^    \"config\"$/a\\    \"0001-drm-i915-dsi-Bypass-GPIO-sequences-on-Huawei-Mateboo.patch\"\\n    \"0002-drm-i915-dsb-Disable-DSB-for-DSI-outputs.patch\"" PKGBUILD
                   updpkgsums
                 
-
-
                   echo ""
                   echo "=== Updated b2sums in $dir/PKGBUILD ==="
                   grep -A 50 "^b2sums=" PKGBUILD || echo "  (b2sums not found)"
@@ -105,7 +110,7 @@ jobs:
                   cd ..
                 fi
               done
-              
+              "
               echo "All b2sums updated successfully!"
               '
 

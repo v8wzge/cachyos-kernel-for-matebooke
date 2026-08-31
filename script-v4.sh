@@ -24,7 +24,7 @@ for f in $files
 do
     d=$(dirname $f)
     cd $d
-    time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg pttrr/docker-makepkg-v4
+    time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg cachyos/docker-makepkg-v4
     docker rm kernelbuild
     cd ..
 done
@@ -37,7 +37,7 @@ for f in $files
 do
     d=$(dirname $f)
     cd $d
-    time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg pttrr/docker-makepkg-v4
+    time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg cachyos/docker-makepkg-v4
     docker rm kernelbuild
     cd ..
 done

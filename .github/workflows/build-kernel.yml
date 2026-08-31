@@ -1,0 +1,141 @@
+# GitHub Actions 工作流：自动打补丁、更新 b2sums 并编译 CachyOS 内核
+#
+# 使用方法：
+#   1. 将此文件保存为 .github/workflows/build-cachyos-kernel.yml
+#   2. 确保当前仓库根目录下有 patch/ 文件夹，内含需要应用的补丁
+#   3. 触发方式：手动触发（workflow_dispatch）或配置 schedule/cron
+#
+# 工作流程：
+#   - 安装 Docker
+#   - 克隆 CachyOS/linux-cachyos 仓库
+#   - 将 patch/ 目录下的补丁复制到所有内核目录
+#   - 在 Arch Linux 容器中运行 makepkg -g 更新 b2sums
+#   - 在 Arch Linux 容器中运行 script-v3-v4.sh 开始编译
+
+name: Build CachyOS Kernel with Patches
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-kernels:
+    name: Build Kernels
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+
+    steps:
+      # ========== 1. 检出当前仓库（包含 patch/ 文件夹） ==========
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ========== 2. 安装 Docker ==========
+      - name: Install Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          docker-version: 'latest'
+
+      # ========== 3. 拉取 linux-cachyos 仓库 ==========
+      - name: Clone linux-cachyos repository
+        run: |
+          git clone https://github.com/CachyOS/linux-cachyos.git
+          cd linux-cachyos
+          git checkout "master"
+          echo "Checked out branch/tag: master"
+          git log --oneline -n 3
+          # 只保留我需要的分支内核
+          find . -maxdepth 1 -type d ! -name "." ! -name "linux-cachyos-bore" ! -name "linux-cachyos" -exec rm -rf {} +
+
+      # ========== 4. 将 patch/ 文件夹内的补丁复制到所有内核目录 ==========
+      - name: Copy patches to all kernel directories
+        run: |
+          cd linux-cachyos
+
+          # 检查 patch 目录是否存在
+          if [ ! -d "../patch" ]; then
+            echo "::error::patch/ directory not found in the repository root!"
+            exit 1
+          fi
+
+          echo "=== Available patches ==="
+          ls -la ../patch/
+
+          echo ""
+          echo "=== Kernel directories found ==="
+          for dir in linux-cachy*/; do
+            echo "  - $dir"
+          done
+
+          echo ""
+          echo "=== Copying patches ==="
+          cp -r ../patch/* linux-cachyos-bore/
+          cp -r  ../patch/* linux-cachyos/
+
+      # ========== 5. 在每个内核目录下运行 makepkg -g 更新 b2sums ==========
+      - name: Update b2sums in PKGBUILD for all kernels
+        run: |
+          cd linux-cachyos
+
+          echo "=== Updating b2sums using Docker (Arch Linux) ==="
+          docker run --rm -v "$PWD":/build -w /build archlinux:latest bash -c '
+              set -e
+              echo "Installing build dependencies..."
+              pacman -Syu
+              pacman -S --noconfirm base-devel git fakeroot debugedit patch pacman-contrib
+              echo ""
+              for dir in linux-cachyos*/; do
+                if [ -f "$dir/PKGBUILD" ]; then
+                  echo "============================================"
+                  echo "Processing: $dir"
+                  echo "============================================"
+                  cd "$dir"
+
+                  sed -i '/^    "config"$/a\    "0001-drm-i915-dsi-Bypass-GPIO-sequences-on-Huawei-Mateboo.patch"\n    "0002-drm-i915-dsb-Disable-DSB-for-DSI-outputs.patch"' PKGBUILD
+
+                  if command -v updpkgsums &> /dev/null; then
+                      updpkgsums
+                  else
+                      echo "Error: updpkgsums not found. Please install pacman-contrib."
+                      cd ..
+                      continue
+                  fi
+
+
+                  echo ""
+                  echo "=== Updated b2sums in $dir/PKGBUILD ==="
+                  grep -A 50 "^b2sums=" PKGBUILD || echo "  (b2sums not found)"
+                  echo ""
+              
+                  # 6. 安全返回上一级目录
+                  cd ..
+              done
+              
+              echo "All b2sums updated successfully!"
+              '
+
+      # ========== 6. 运行 script-v3-v4.sh 开始编译 ==========
+      - name: Run compilation script (script-v3-v4.sh)
+        run: |
+          cd linux-cachyos
+
+          if [ ! -f "script-v3-v4.sh" ]; then
+            echo "::error::script-v3-v4.sh not found in linux-cachyos!"
+            exit 1
+          fi
+
+          echo "=== Starting kernel compilation ==="
+          echo "This may take a long time. Be patient!"
+          echo ""
+          echo "Running script-v3-v4.sh..."
+          bash script-v3-v4.sh
+
+      # ========== 7. 上传编译产物（可选） ==========
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cachyos-kernel-build-artifacts
+          path: |
+            linux-cachyos/linux-cachy*/*.pkg.tar.zst
+          retention-days: 7

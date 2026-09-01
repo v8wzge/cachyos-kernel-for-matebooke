@@ -10,7 +10,7 @@
 #   - 克隆 CachyOS/linux-cachyos 仓库
 #   - 将 patch/ 目录下的补丁复制到所有内核目录
 #   - 在 Arch Linux 容器中运行 makepkg -g 更新 b2sums
-#   - 在 Arch Linux 容器中运行 script-v3-v4.sh 开始编译
+#   - 在 Arch Linux 容器中开始编译
 
 name: Build CachyOS Kernel with Patches
 
@@ -115,7 +115,7 @@ jobs:
           '
 
       # ========== 6. 开始编译 ==========
-      - name: Run compilation script (script-v4.sh)
+      - name: Run compilation script
         run: |
           time docker build -t local/docker-makepkg-v4 ./makepkg-v4
           cd linux-cachyos

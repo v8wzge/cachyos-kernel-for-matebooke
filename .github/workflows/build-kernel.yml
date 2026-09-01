@@ -117,6 +117,7 @@ jobs:
       # ========== 6. 开始编译 ==========
       - name: Run compilation script (script-v4.sh)
         run: |
+          time docker build -t local/docker-makepkg-v4 ./makepkg
           cd linux-cachyos
           sudo chown -R $USER:$USER .
           ## 1. 全局配置修改
@@ -143,7 +144,7 @@ jobs:
           do
               d=$(dirname $f)
               cd $d
-              time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg cachyos/docker-makepkg-v4
+              time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
               docker rm kernelbuild
               cd ..
           done
@@ -156,7 +157,7 @@ jobs:
           do
               d=$(dirname $f)
               cd $d
-              time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg cachyos/docker-makepkg-v4
+              time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
               docker rm kernelbuild
               cd ..
           done

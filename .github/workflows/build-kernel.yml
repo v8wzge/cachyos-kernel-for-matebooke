@@ -117,7 +117,7 @@ jobs:
       # ========== 6. 开始编译 ==========
       - name: Run compilation script (script-v4.sh)
         run: |
-          time docker build -t local/docker-makepkg-v4 ./makepkg
+          time docker build -t local/docker-makepkg-v4 ./makepkg-v4
           cd linux-cachyos
           sudo chown -R $USER:$USER .
           ## 1. 全局配置修改

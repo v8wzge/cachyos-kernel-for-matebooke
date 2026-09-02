@@ -32,7 +32,7 @@ WORKDIR /home/notroot
 RUN mkdir .gnupg && \
     touch .gnupg/gpg.conf && \
     echo "keyserver-options auto-key-retrieve" > .gnupg/gpg.conf && \
-    sudo pacman -Sy --noconfirm base-devel multilib-devel paru pacman-contrib zstd zlib-ng-compat lib32-zlib-ng-compat cachyos-rate-mirrors && \
+    sudo pacman -Sy --noconfirm base-devel multilib-devel paru pacman-contrib zstd zlib-ng-compat lib32-zlib-ng-compat && \
     sudo pacman -Syu --noconfirm
 
 RUN sudo pacman-key --init && \

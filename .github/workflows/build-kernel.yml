@@ -34,6 +34,7 @@ jobs:
           else
             echo "❌ x86-64-v4 (AVX-512) is NOT supported by this runner."
             echo "is_v4_supported=false" >> $GITHUB_OUTPUT
+            exit 1
           fi
       # ========== 1. 检出当前仓库（包含 patch/ 文件夹） ==========
       - name: Checkout current repository

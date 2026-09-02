@@ -44,7 +44,7 @@ jobs:
           echo "Checked out branch/tag: master"
           git log --oneline -n 3
           # 只保留我需要的分支内核
-          find . -maxdepth 1 -type d ! -name "." ! -name "linux-cachyos-bore" ! -name "linux-cachyos" -exec rm -rf {} +
+          find . -maxdepth 1 -type d ! -name "." ! -name "linux-cachyos-bore" -exec rm -rf {} +
 
       # ========== 4. 将 patch/ 文件夹内的补丁复制到所有内核目录 ==========
       - name: Copy patches to all kernel directories
@@ -61,15 +61,12 @@ jobs:
           ls -la ../patch/
 
           echo ""
-          echo "=== Kernel directories found ==="
+          echo "=== Kernel directories found,copy patch ==="
           for dir in linux-cachy*/; do
             echo "  - $dir"
+            cp -r ../patch/* $dir/
           done
 
-          echo ""
-          echo "=== Copying patches ==="
-          cp -r ../patch/* linux-cachyos-bore/
-          cp -r  ../patch/* linux-cachyos/
 
       # ========== 5. 在每个内核目录下运行 makepkg -g 更新 b2sums ==========
       - name: Update b2sums in PKGBUILD for all kernels
@@ -137,16 +134,16 @@ jobs:
           ## gcc内核不用lto
           find . -name "PKGBUILD" | xargs -I {} sed -i "s/_use_llvm_lto:=thin/_use_llvm_lto:=none/" {}
           
-          ## 2. GCC v4 Kernel 编译
-          files=$(find . -name "PKGBUILD")
-          for f in $files
-          do
-              d=$(dirname $f)
-              cd $d
-              time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
-              docker rm kernelbuild
-              cd ..
-          done
+          # ## 2. GCC v4 Kernel 编译
+          # files=$(find . -name "PKGBUILD")
+          # for f in $files
+          # do
+          #     d=$(dirname $f)
+          #     cd $d
+          #     time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
+          #     docker rm kernelbuild
+          #     cd ..
+          # done
 
           ## 3. LLVM ThinLTO v4 Kernel 编译
           find . -name "PKGBUILD" | xargs -I {} sed -i "s/_use_llvm_lto:=none/_use_llvm_lto:=thin/" {}

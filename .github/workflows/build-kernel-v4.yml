@@ -1,21 +1,33 @@
-# GitHub Actions 工作流：自动打补丁、更新 b2sums 并编译 CachyOS 内核
-#
-# 使用方法：
-#   1. 将此文件保存为 .github/workflows/build-cachyos-kernel.yml
-#   2. 确保当前仓库根目录下有 patch/ 文件夹，内含需要应用的补丁
-#   3. 触发方式：手动触发（workflow_dispatch）或配置 schedule/cron
-#
-# 工作流程：
-#   - 安装 Docker
-#   - 克隆 CachyOS/linux-cachyos 仓库
-#   - 将 patch/ 目录下的补丁复制到所有内核目录
-#   - 在 Arch Linux 容器中运行 makepkg -g 更新 b2sums
-#   - 在 Arch Linux 容器中开始编译
-
 name: Build CachyOS Kernel with Patches
 
 on:
   workflow_dispatch:
+    inputs:
+      kernel:
+        description: '选择编译的内核'
+        required: true
+        default: 'linux-cachyos-bore'
+        type: choice
+        options:
+          - linux-cachyos
+          - linux-cachyos-bore
+          - linux-cachyos-bmq
+          - linux-cachyos-deckify
+          - linux-cachyos-eevdf
+          - linux-cachyos-lts
+          - linux-cachyos-server
+          - linux-cachyos-hardened
+          - linux-cachyos-rc
+          - linux-cachyos-rt-bore
+
+      compiler:
+        description: '选择编译器'
+        required: true
+        default: 'llvm'
+        type: choice
+        options:
+          - llvm
+          - gcc
 
 jobs:
   build-kernels:
@@ -25,15 +37,13 @@ jobs:
     steps:
       # ========== 1. 检出当前仓库（包含 patch/ 文件夹） ==========
       - name: Checkout current repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: '0'
 
       # ========== 2. 安装 Docker ==========
       - name: Install Docker
-        uses: docker/setup-docker-action@v4
-        with:
-          docker-version: 'latest'
+        uses: docker/setup-docker-action@v5
 
       # ========== 3. 拉取 linux-cachyos 仓库 ==========
       - name: Clone linux-cachyos repository
@@ -44,10 +54,10 @@ jobs:
           echo "Checked out branch/tag: master"
           git log --oneline -n 3
           # 只保留我需要的分支内核
-          find . -maxdepth 1 -type d ! -name "." ! -name "linux-cachyos-bore" -exec rm -rf {} +
+          find . -maxdepth 1 -type d ! -name "." ! -name "${{ inputs.kernel }}" -exec rm -rf {} +
 
       # ========== 4. 将 patch/ 文件夹内的补丁复制到所有内核目录 ==========
-      - name: Copy patches to all kernel directories
+      - name: Copy patches
         run: |
           cd linux-cachyos
 
@@ -69,7 +79,7 @@ jobs:
 
 
       # ========== 5. 在每个内核目录下运行 makepkg -g 更新 b2sums ==========
-      - name: Update b2sums in PKGBUILD for all kernels
+      - name: Update b2sums
         run: |
           cd linux-cachyos
 
@@ -110,10 +120,14 @@ jobs:
               echo "All b2sums updated successfully!"
           '
 
-      # ========== 6. 开始编译 ==========
-      - name: Run compilation script
+      # ========== 6. 创建docker镜像 ==========
+      - name: Build docker
         run: |
           time docker build -t local/docker-makepkg-v4 ./makepkg-v4
+
+      # ========== 7. 开始编译 ==========
+      - name: Start compiling
+        run: |
           cd linux-cachyos
           sudo chown -R $USER:$USER .
           ## 1. 全局配置修改
@@ -131,32 +145,41 @@ jobs:
           ## 默认性能（有问题，不管开不开cpu都锁在5w）
           find . -name "PKGBUILD" | xargs -I {} sed -i "s/_per_gov:=no/_per_gov:=yes/" {}
 
+          echo "当前选择的内核: ${{ inputs.kernel }}"
+          echo "当前选择的编译器: ${{ inputs.compiler }}"
+          
           ## gcc内核不用lto
           find . -name "PKGBUILD" | xargs -I {} sed -i "s/_use_llvm_lto:=thin/_use_llvm_lto:=none/" {}
           
-          # ## 2. GCC v4 Kernel 编译
-          # files=$(find . -name "PKGBUILD")
-          # for f in $files
-          # do
-          #     d=$(dirname $f)
-          #     cd $d
-          #     time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
-          #     docker rm kernelbuild
-          #     cd ..
-          # done
+          if [ "${{ inputs.compiler }}" == "gcc" ]; then
+            echo "🔨 正在使用 GCC (无 LTO) 编译..."
+            ## 2. GCC v4 Kernel 编译
+            files=$(find . -name "PKGBUILD")
+            for f in $files
+            do
+                d=$(dirname $f)
+                cd $d
+                time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
+                docker rm kernelbuild
+                cd ..
+            done
 
-          ## 3. LLVM ThinLTO v4 Kernel 编译
-          find . -name "PKGBUILD" | xargs -I {} sed -i "s/_use_llvm_lto:=none/_use_llvm_lto:=thin/" {}
+          elif [ "${{ inputs.compiler }}" == "llvm" ]; then
+            echo "🔨 正在使用 LLVM ThinLTO 编译..."
+            ## 3. LLVM ThinLTO v4 Kernel 编译
+            find . -name "PKGBUILD" | xargs -I {} sed -i "s/_use_llvm_lto:=none/_use_llvm_lto:=thin/" {}
+            
+            files=$(find . -name "PKGBUILD")
+            for f in $files
+            do
+                d=$(dirname $f)
+                cd $d
+                time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
+                docker rm kernelbuild
+                cd ..
+            done
+          fi
           
-          files=$(find . -name "PKGBUILD")
-          for f in $files
-          do
-              d=$(dirname $f)
-              cd $d
-              time docker run --name kernelbuild -e EXPORT_PKG=1 -e SYNC_DATABASE=1 -e CHECKSUMS=1 -v $PWD:/pkg local/docker-makepkg-v4
-              docker rm kernelbuild
-              cd ..
-          done
           echo "=== Moving kernels to output directory ==="
           # 1. 在当前目录下创建一个用于存放最终产物的仓库目录
           mkdir -p local
@@ -166,10 +189,10 @@ jobs:
           mv */*.pkg.tar.zst* local/ || echo "Warning: No packages found to move."
 
           echo "Local repository updated successfully!"
-      # ========== 7. 上传编译产物（可选） ==========
+      # ========== 8. 上传编译产物（可选） ==========
       - name: Upload build artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cachyos-kernel-build-artifacts
           path: |

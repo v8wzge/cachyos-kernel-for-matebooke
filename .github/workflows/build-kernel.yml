@@ -38,7 +38,7 @@ jobs:
       # ========== 1. 检出当前仓库（包含 patch/ 文件夹） ==========
       - name: Checkout current repository
         uses: actions/checkout@v4
-        with
+        with:
           fetch-depth: 0
 
       # ========== 2. 安装 Docker ==========

@@ -38,11 +38,7 @@ RUN mkdir .gnupg && \
 RUN sudo pacman-key --init && \
     sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com && \
     sudo pacman-key --lsign-key F3B607488DB35A47 && \
-    sudo pacman -U --noconfirm 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-keyring-20240331-1-any.pkg.tar.zst' \
-'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-mirrorlist-27-1-any.pkg.tar.zst' \
-'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst' \
-'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v4-mirrorlist-27-1-any.pkg.tar.zst' \
-'https://mirror.cachyos.org/repo/x86_64/cachyos/pacman-7.1.0.r9.g54d9411-4-x86_64.pkg.tar.zst'
+    sudo pacman -Syu --noconfirm
 COPY makepkg.conf /etc/makepkg.conf
 
 # Build the package

@@ -24,9 +24,12 @@ echo "Updating packages"
 sudo pacman -Syyu --noconfirm
 
 ## Update checksums and generate .SRCINFO before building
+sed -i '/^    "config"$/a\    "0001-drm-i915-dsi-Bypass-GPIO-sequences-on-Huawei-Mateboo.patch"\n    "0002-drm-i915-dsb-Disable-DSB-for-DSI-outputs.patch"' PKGBUILD
+echo "add patch successfully"
 if [ -n "$CHECKSUMS" ]; then
     echo "updating checksums"
     updpkgsums
+    grep -A 50 "^b2sums=" PKGBUILD
     makepkg --printsrcinfo > .SRCINFO
 else
     echo "not updating checksums"

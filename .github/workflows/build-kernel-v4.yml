@@ -35,17 +35,14 @@ jobs:
     runs-on: ubuntu-26.04
 
     steps:
-      # ========== 1. 检出当前仓库（包含 patch/ 文件夹） ==========
       - name: Checkout current repository
         uses: actions/checkout@v7
         with:
           fetch-depth: '0'
 
-      # ========== 2. 安装 Docker ==========
       - name: Install Docker
         uses: docker/setup-docker-action@v5
 
-      # ========== 3. 拉取 linux-cachyos 仓库 ==========
       - name: Clone linux-cachyos repository
         run: |
           git clone https://github.com/CachyOS/linux-cachyos.git
@@ -56,7 +53,6 @@ jobs:
           # 只保留我需要的分支内核
           find . -maxdepth 1 -type d ! -name "." ! -name "${{ inputs.kernel }}" -exec rm -rf {} +
 
-      # ========== 4. 将 patch/ 文件夹内的补丁复制到所有内核目录 ==========
       - name: Copy patches
         run: |
           cd linux-cachyos
@@ -76,56 +72,50 @@ jobs:
             echo "  - $dir"
             cp -r ../patch/* $dir/
           done
+      # - name: Update b2sums
+      #   run: |
+      #     cd linux-cachyos
 
-
-      # ========== 5. 在每个内核目录下运行 makepkg -g 更新 b2sums ==========
-      - name: Update b2sums
-        run: |
-          cd linux-cachyos
-
-          echo "=== Updating b2sums using Docker (Arch Linux) ==="
-          docker run --rm -v "$PWD":/build -w /build archlinux:latest bash -c '
-              set -e
-              echo "Installing build dependencies..."
-              pacman -Syu --noconfirm
-              pacman -S --noconfirm base-devel git fakeroot debugedit patch pacman-contrib
-              echo ""
+      #     echo "=== Updating b2sums using Docker (Arch Linux) ==="
+      #     docker run --rm -v "$PWD":/build -w /build archlinux:latest bash -c '
+      #         set -e
+      #         echo "Installing build dependencies..."
+      #         pacman -Syu --noconfirm
+      #         pacman -S --noconfirm base-devel git fakeroot debugedit patch pacman-contrib
+      #         echo ""
               
-              # 创建一个普通用户用于执行 updpkgsums
-              useradd -m -u 1000 builder
-              chown -R builder:builder /build
+      #         # 创建一个普通用户用于执行 updpkgsums
+      #         useradd -m -u 1000 builder
+      #         chown -R builder:builder /build
               
-              # 切换到普通用户执行核心逻辑
-              su builder -c "
-                for dir in linux-cachyos*/; do
-                  if [ -f \"\$dir/PKGBUILD\" ]; then
-                    echo \"============================================\"
-                    echo \"Processing: \$dir\"
-                    echo \"============================================\"
-                    cd \"\$dir\"
+      #         # 切换到普通用户执行核心逻辑
+      #         su builder -c "
+      #           for dir in linux-cachyos*/; do
+      #             if [ -f \"\$dir/PKGBUILD\" ]; then
+      #               echo \"============================================\"
+      #               echo \"Processing: \$dir\"
+      #               echo \"============================================\"
+      #               cd \"\$dir\"
 
-                    sed -i \"/^    \\\"config\\\"$/a\\\\    \\\"0001-drm-i915-dsi-Bypass-GPIO-sequences-on-Huawei-Mateboo.patch\\\"\\\\n    \\\"0002-drm-i915-dsb-Disable-DSB-for-DSI-outputs.patch\\\"\" PKGBUILD
-                    updpkgsums
+      #               sed -i \"/^    \\\"config\\\"$/a\\\\    \\\"0001-drm-i915-dsi-Bypass-GPIO-sequences-on-Huawei-Mateboo.patch\\\"\\\\n    \\\"0002-drm-i915-dsb-Disable-DSB-for-DSI-outputs.patch\\\"\" PKGBUILD
+      #               updpkgsums
 
-                    echo \"\"
-                    echo \"=== Updated b2sums in \$dir/PKGBUILD ===\"
-                    grep -A 50 \"^b2sums=\" PKGBUILD || echo \"  (b2sums not found)\"
-                    echo \"\"
+      #               echo \"\"
+      #               echo \"=== Updated b2sums in \$dir/PKGBUILD ===\"
+      #               grep -A 50 \"^b2sums=\" PKGBUILD || echo \"  (b2sums not found)\"
+      #               echo \"\"
               
-                    cd ..
-                  fi
-                done
-              "
+      #               cd ..
+      #             fi
+      #           done
+      #         "
               
-              echo "All b2sums updated successfully!"
-          '
-
-      # ========== 6. 创建docker镜像 ==========
+      #         echo "All b2sums updated successfully!"
+      #    '
       - name: Build docker
         run: |
           time docker build -t local/docker-makepkg-v4 ./makepkg-v4
 
-      # ========== 7. 开始编译 ==========
       - name: Start compiling
         run: |
           cd linux-cachyos
@@ -153,7 +143,7 @@ jobs:
           
           if [ "${{ inputs.compiler }}" == "gcc" ]; then
             echo "🔨 正在使用 GCC (无 LTO) 编译..."
-            ## 2. GCC v4 Kernel 编译
+
             files=$(find . -name "PKGBUILD")
             for f in $files
             do
@@ -166,7 +156,7 @@ jobs:
 
           elif [ "${{ inputs.compiler }}" == "llvm" ]; then
             echo "🔨 正在使用 LLVM ThinLTO 编译..."
-            ## 3. LLVM ThinLTO v4 Kernel 编译
+
             find . -name "PKGBUILD" | xargs -I {} sed -i "s/_use_llvm_lto:=none/_use_llvm_lto:=thin/" {}
             
             files=$(find . -name "PKGBUILD")
@@ -179,17 +169,11 @@ jobs:
                 cd ..
             done
           fi
-          
-          echo "=== Moving kernels to output directory ==="
-          # 1. 在当前目录下创建一个用于存放最终产物的仓库目录
-          mkdir -p local
-          
-          # 2. 将所有生成的 v4 内核包移动到该目录
-          # 注意：如果你的编译环境在 Docker 中，请确保这些文件已经生成在挂载的宿主机目录中
-          mv */*.pkg.tar.zst* local/ || echo "Warning: No packages found to move."
 
+          mkdir -p local
+          mv */*.pkg.tar.zst* local/ || echo "Warning: No packages found to move."
           echo "Local repository updated successfully!"
-      # ========== 8. 上传编译产物（可选） ==========
+
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v7

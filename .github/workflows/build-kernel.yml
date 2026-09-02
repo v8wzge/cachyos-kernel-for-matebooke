@@ -23,10 +23,22 @@ jobs:
     runs-on: ubuntu-26.04
 
     steps:
+      # =================== 0. 检查架构  =========================
+      - name: Check x86-64-v4 Support
+        id: check_arch
+        run: |
+          echo "Checking CPU features for x86-64-v4 (AVX-512)..."
+          if grep -q avx512f /proc/cpuinfo; then
+            echo "✅ x86-64-v4 (AVX-512) is supported by this runner."
+            echo "is_v4_supported=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ x86-64-v4 (AVX-512) is NOT supported by this runner."
+            echo "is_v4_supported=false" >> $GITHUB_OUTPUT
+          fi
       # ========== 1. 检出当前仓库（包含 patch/ 文件夹） ==========
       - name: Checkout current repository
         uses: actions/checkout@v4
-        with:
+        with
           fetch-depth: 0
 
       # ========== 2. 安装 Docker ==========
